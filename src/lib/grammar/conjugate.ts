@@ -464,8 +464,8 @@ function possessiveSuffix(stem: string, person: Person) {
       "2pl": needsY ? `${y}${i}n${i}z` : `n${i}z`,
       "3pl": `s${i}`,
     }
-    if (person === "3sg" || person === "3pl") {
-      // su → suyu; araba → arabası
+    if (person === "3sg") {
+      // su → suyu; araba → arabası (3pl already remapped to 3sg above)
       if ("oöuü".includes(last)) return `${base}y${i}`
       return bufferS(base, i)
     }

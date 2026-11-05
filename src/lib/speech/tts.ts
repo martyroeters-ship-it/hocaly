@@ -5,9 +5,17 @@ import { audioPath, ttsCacheKey, writeAudioFile } from "@/lib/speech/fs"
 import { resolveTtsProvider, SpeechUnavailableError } from "@/lib/speech/providers"
 import { estimateTtsCost, logSpeechUsage } from "@/lib/speech/usage"
 
+export type TtsAudioResult = {
+  provider: "openai" | "gemini"
+  model: string
+  mimeType: string
+  buffer: Buffer
+  cached: boolean
+}
+
 export type TtsResult =
   | { provider: "browser"; model: "speechSynthesis" }
-  | { provider: "openai" | "gemini"; model: string; mimeType: string; buffer: Buffer; cached: boolean }
+  | TtsAudioResult
 
 const GEMINI_VOICES = new Set([
   "Zephyr",
@@ -86,7 +94,7 @@ function geminiTtsPrompt(model: string, text: string) {
   return text
 }
 
-async function synthesizeGemini(text: string, voice: string): Promise<TtsResult> {
+async function synthesizeGemini(text: string, voice: string): Promise<TtsAudioResult> {
   const key = process.env.GEMINI_API_KEY?.trim()
   if (!key) throw new SpeechUnavailableError("Gemini TTS needs GEMINI_API_KEY.")
   const models = [
@@ -139,7 +147,7 @@ async function synthesizeGemini(text: string, voice: string): Promise<TtsResult>
   throw new SpeechUnavailableError(lastError)
 }
 
-async function synthesizeOpenAi(text: string, voice: string): Promise<TtsResult> {
+async function synthesizeOpenAi(text: string, voice: string): Promise<TtsAudioResult> {
   const model = process.env.OPENAI_TTS_MODEL?.trim() || "gpt-4o-mini-tts"
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   let response: Awaited<ReturnType<typeof client.audio.speech.create>>

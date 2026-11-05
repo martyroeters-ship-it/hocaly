@@ -92,7 +92,7 @@ export async function POST(request: Request) {
         include: { meanings: true },
       })
       const known = existing ? englishOf(existing) : ""
-      if (known) {
+      if (existing && known) {
         return ok({
           turkish: existing.turkish,
           english: known,
