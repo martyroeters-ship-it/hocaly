@@ -1,0 +1,512 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Word {
+  id                   String    @id @default(cuid())
+  turkish              String
+  turkishNormalized    String    @unique
+  dictionaryForm       String?
+  dictionaryNormalized String?
+  partOfSpeech         String?
+  cefrLevel            String?
+  /// verified = documented curriculum source; estimate = heuristic; user = learner-set
+  cefrSource           String?
+  frequencyRank        Int?
+  collocationsJson     String?
+  grammarNotes         String?
+  learningStatus       String    @default("new")
+  notes                String?
+  userEdited           Boolean   @default(false)
+  reviewCount          Int       @default(0)
+  correctCount         Int       @default(0)
+  lastReviewedAt       DateTime?
+  nextReviewAt         DateTime?
+  introducedOn         String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  meanings     Meaning[]
+  examples     ExampleSentence[]
+  tags         WordTag[]
+  reviews         ReviewLog[]
+  card            SrsCard?
+  forms           WordForm[]
+  storyWords      StoryWord[]
+  testAnswers     TestAnswer[]
+  skills          WordSkill[]
+  skillLogs       SkillLog[]
+  listeningWords  ListeningWord[]
+
+  @@index([learningStatus])
+  @@index([nextReviewAt])
+  @@index([partOfSpeech])
+  @@index([cefrLevel])
+  @@index([frequencyRank])
+}
+
+model Meaning {
+  id         String  @id @default(cuid())
+  wordId     String
+  english    String
+  isPrimary  Boolean @default(false)
+  userEdited Boolean @default(false)
+  word       Word    @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@index([wordId])
+}
+
+model Tag {
+  id    String    @id @default(cuid())
+  name  String    @unique
+  words WordTag[]
+}
+
+model WordTag {
+  wordId String
+  tagId  String
+  word   Word @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([wordId, tagId])
+}
+
+model ExampleSentence {
+  id        String   @id @default(cuid())
+  wordId    String
+  turkish   String
+  english   String
+  cefrLevel String?
+  highlight String?
+  favorite  Boolean  @default(false)
+  source    String   @default("ai")
+  createdAt DateTime @default(now())
+  word      Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@index([wordId])
+}
+
+model SrsCard {
+  wordId         String    @id
+  due            DateTime
+  stability      Float     @default(0)
+  difficulty     Float     @default(0)
+  elapsedDays    Float     @default(0)
+  scheduledDays  Float     @default(0)
+  learningSteps  Int       @default(0)
+  reps           Int       @default(0)
+  lapses         Int       @default(0)
+  state          String    @default("New")
+  lastReview     DateTime?
+  word           Word      @relation(fields: [wordId], references: [id], onDelete: Cascade)
+}
+
+model ReviewLog {
+  id            String   @id @default(cuid())
+  wordId        String
+  rating        Int
+  state         String
+  due           DateTime
+  stability     Float
+  difficulty    Float
+  elapsedDays   Float
+  scheduledDays Float
+  review        DateTime @default(now())
+  source        String   @default("review")
+  /// recognition | production — which ability was practised
+  face          String?
+  /// Client-generated key to prevent duplicate submissions
+  clientKey     String?  @unique
+  word          Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@index([wordId, review])
+  @@index([face, review])
+}
+
+model WordForm {
+  id       String  @id @default(cuid())
+  wordId   String
+  form     String
+  label    String
+  verified Boolean @default(false)
+  source   String  @default("heuristic")
+  word     Word    @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@index([wordId])
+}
+
+model GrammarProfile {
+  id           String   @id @default("default")
+  introduceNew Boolean  @default(false)
+  knownJson    String   @default("[]")
+  updatedAt    DateTime @updatedAt
+}
+
+/// Per-structure practice stats for grammar focus tips and progress.
+model GrammarSkill {
+  structureId    String   @id
+  cefrLevel      String
+  reviewCount    Int      @default(0)
+  correctCount   Int      @default(0)
+  lastReviewedAt DateTime?
+  focusScore     Float    @default(0)
+  /// YYYY-MM-DD (local) when the learner last scored perfectly on this topic alone
+  lastPerfectDay String?
+  /// YYYY-MM-DD (local) when the learner last finished a topic test without a perfect score
+  lastImperfectDay String?
+  /// unseen|weak|learning|familiar|strong|mastered
+  masteryStatus          String    @default("unseen")
+  consecutiveCleanPasses Int       @default(0)
+  nextReviewAt           DateTime?
+  lastDiagnosticAt       DateTime?
+  lastPracticeAt         DateTime?
+  /// Rolling window helpers for recent accuracy
+  recentCorrect          Int       @default(0)
+  recentTotal            Int       @default(0)
+  /// { blank:{c,t}, translate:{c,t}, ... }
+  byTypeJson             String    @default("{}")
+  /// Per practice-mode session marks: { conjugation:{day,score,total}, master:{…}, … }
+  practiceModesJson      String    @default("{}")
+  /// Simple mistake category counts
+  mistakeJson            String    @default("{}")
+  /// YYYY-MM-DD when last passed diagnostic cleanly
+  diagnosticStreakDay    String?
+  /// YYYY-MM-DD of the most recent diagnostic/assessment structure outcome
+  lastDiagnosticDay      String?
+  /// passed | attention | verify — day's diagnostic / recovery mark for this structure
+  lastDiagnosticResult   String?
+  /// Assessed in initial A1/A2 assessment
+  assessmentDone         Boolean   @default(false)
+  updatedAt      DateTime @updatedAt
+
+  @@index([masteryStatus])
+  @@index([nextReviewAt])
+}
+
+model GrammarAttempt {
+  id          String   @id @default(cuid())
+  structureId String
+  verb        String?
+  prompt      String
+  expected    String
+  given       String
+  result      String
+  mode        String   @default("verb")
+  createdAt   DateTime @default(now())
+
+  @@index([structureId, createdAt])
+}
+
+/// Adaptive assessment / diagnostic / practice session state.
+model GrammarSession {
+  id          String   @id @default(cuid())
+  /// assessment | diagnostic | practice
+  kind        String
+  /// A1 | A2 | mix | A1+A2
+  levelScope  String
+  /// active | completed
+  status      String   @default("active")
+  cursor      Int      @default(0)
+  /// items + answers + structure scores
+  payloadJson String   @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([kind, status])
+}
+
+/// Singleton adaptive grammar settings (id = "default").
+model GrammarSettings {
+  id                       String @id @default("default")
+  diagnosticStructureCount Int    @default(8)
+  questionsPerStructure    Int    @default(3)
+  practiceStructures       Int    @default(3)
+  practiceQuestionsPer     Int    @default(10)
+  /// Configurable SRS days e.g. [1,2,3,7,14,30]
+  intervalsJson            String @default("[1,2,3,7,14,30]")
+  /// When bumped, assessment-derived mastery is wiped once (curated bank rewrite).
+  assessmentBankVersion    Int    @default(0)
+}
+
+model Transcript {
+  id        String   @id @default(cuid())
+  title     String
+  cefrLevel String?
+  source    String?
+  rawText   String
+  createdAt DateTime @default(now())
+  sentences TranscriptSentence[]
+}
+
+model TranscriptSentence {
+  id           String   @id @default(cuid())
+  transcriptId String
+  index        Int
+  turkish      String
+  english      String?
+  transcript   Transcript @relation(fields: [transcriptId], references: [id], onDelete: Cascade)
+  targets      TranscriptTarget[]
+
+  @@index([transcriptId])
+}
+
+model TranscriptTarget {
+  id         String   @id @default(cuid())
+  sentenceId String
+  turkish    String
+  english    String
+  wordId     String?
+  start      Int?
+  end        Int?
+  sentence   TranscriptSentence @relation(fields: [sentenceId], references: [id], onDelete: Cascade)
+
+  @@index([sentenceId])
+}
+
+model Story {
+  id             String   @id @default(cuid())
+  title          String
+  topic          String?
+  cefrLevel      String
+  lengthTarget   Int
+  turkish        String
+  english        String?
+  sentencesJson  String   @default("[]")
+  questionsJson  String   @default("[]")
+  usedJson       String   @default("[]")
+  omittedJson    String   @default("[]")
+  grammarJson    String   @default("[]")
+  createdAt      DateTime @default(now())
+  words          StoryWord[]
+}
+
+model StoryWord {
+  storyId String
+  wordId  String
+  used    Boolean
+  story   Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  word    Word  @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, wordId])
+}
+
+model TestSession {
+  id          String    @id @default(cuid())
+  mode        String
+  status      String    @default("in_progress")
+  wordIdsJson String    @default("[]")
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+  answers     TestAnswer[]
+}
+
+model TestAnswer {
+  id          String   @id @default(cuid())
+  sessionId   String
+  wordId      String
+  prompt      String
+  expected    String
+  given       String
+  result      String
+  overridden  Boolean  @default(false)
+  explanation String?
+  createdAt   DateTime @default(now())
+  session     TestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  word        Word        @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model StudyDay {
+  date        String @id
+  minutes     Int    @default(0)
+  seconds     Int    @default(0)
+  reviewsDone Int    @default(0)
+  newLearned  Int    @default(0)
+  correct     Int    @default(0)
+  incorrect   Int    @default(0)
+}
+
+model DailyWorkflow {
+  date          String  @id
+  reviewsDone   Boolean @default(false)
+  newDone       Boolean @default(false)
+  sentencesDone Boolean @default(false)
+  testDone      Boolean @default(false)
+  storyDone     Boolean @default(false)
+  pausedJson    String?
+}
+
+model Settings {
+  id                    String  @id @default("default")
+  newWordsPerDay        Int     @default(10)
+  /// Pause introducing new words when overdue reviews exceed this count (0 = never)
+  pauseNewWhenOverdue   Int     @default(40)
+  /// FSRS target retention, e.g. 0.9 = 90%
+  desiredRetention      Float   @default(0.9)
+  cefrDefault           String  @default("A2")
+  aiProvider            String  @default("gemini")
+  ttsVoice              String?
+  ttsProvider           String  @default("gemini")
+  sttProvider           String  @default("gemini")
+  keepRecordings        Boolean @default(false)
+  fontSize              Int     @default(20)
+  schemaVersion         Int     @default(3)
+}
+
+model WordSkill {
+  wordId         String
+  skill          String
+  reviewCount    Int       @default(0)
+  correctCount   Int       @default(0)
+  lastReviewedAt DateTime?
+  nextReviewAt   DateTime?
+  due            DateTime  @default(now())
+  stability      Float     @default(0)
+  difficulty     Float     @default(0)
+  elapsedDays    Float     @default(0)
+  scheduledDays  Float     @default(0)
+  learningSteps  Int       @default(0)
+  reps           Int       @default(0)
+  lapses         Int       @default(0)
+  state          String    @default("New")
+  lastReview     DateTime?
+  word           Word      @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@id([wordId, skill])
+  @@index([skill, nextReviewAt])
+}
+
+model SkillLog {
+  id        String   @id @default(cuid())
+  wordId    String
+  skill     String
+  rating    Int
+  result    String
+  source    String
+  createdAt DateTime @default(now())
+  word      Word     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@index([wordId, skill])
+  @@index([skill, createdAt])
+}
+
+model ListeningExercise {
+  id            String   @id @default(cuid())
+  title         String
+  topic         String
+  cefrLevel     String
+  format        String
+  durationSec   Int
+  speed         Float    @default(1)
+  turkish       String
+  english       String
+  sentencesJson String   @default("[]")
+  questionsJson String   @default("[]")
+  dictationJson String   @default("[]")
+  vocabJson     String   @default("[]")
+  usedJson      String   @default("[]")
+  omittedJson   String   @default("[]")
+  saved         Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  words         ListeningWord[]
+  attempts      ListeningAttempt[]
+}
+
+model ListeningWord {
+  exerciseId String
+  wordId     String
+  used       Boolean @default(true)
+  exercise   ListeningExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  word       Word              @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@id([exerciseId, wordId])
+}
+
+model ListeningAttempt {
+  id         String   @id @default(cuid())
+  exerciseId String
+  kind       String
+  prompt     String
+  given      String
+  expected   String
+  result     String
+  createdAt  DateTime @default(now())
+  exercise   ListeningExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([exerciseId])
+}
+
+model SpeakingSession {
+  id           String    @id @default(cuid())
+  mode         String
+  topic        String?
+  cefrLevel    String
+  speed        Float     @default(1)
+  durationSec  Int?
+  itemsJson    String    @default("[]")
+  messagesJson String    @default("[]")
+  reportJson   String?
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+  turns        SpeakingTurn[]
+}
+
+model SpeakingTurn {
+  id           String   @id @default(cuid())
+  sessionId    String
+  role         String
+  turkish      String?
+  english      String?
+  transcript   String?
+  expected     String?
+  feedbackJson String?
+  recordingKey String?
+  createdAt    DateTime @default(now())
+  session      SpeakingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model AudioCache {
+  key        String   @id
+  provider   String
+  model      String
+  mimeType   String
+  path       String
+  charCount  Int
+  createdAt  DateTime @default(now())
+}
+
+model SpeechUsage {
+  id           String   @id @default(cuid())
+  kind         String
+  provider     String
+  model        String
+  units        Int      @default(0)
+  estimatedUsd Float    @default(0)
+  createdAt    DateTime @default(now())
+}
+
+model AiCache {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  kind      String
+  payload   String
+  createdAt DateTime @default(now())
+}
+
+model TokenUsage {
+  id           String   @id @default(cuid())
+  provider     String
+  model        String
+  inputTokens  Int
+  outputTokens Int
+  estimatedUsd Float    @default(0)
+  createdAt    DateTime @default(now())
+}
