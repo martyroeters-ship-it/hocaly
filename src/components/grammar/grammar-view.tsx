@@ -951,9 +951,7 @@ export function GrammarView() {
     Boolean(current?.verb) &&
     (current?.kind === "translate" ||
       current?.kind === "transform" ||
-      current?.kind === "sentence" ||
-      (practiceMode === "master" &&
-        (current?.kind === "translate" || current?.kind === "transform")))
+      current?.kind === "sentence")
   const blankLemma =
     currentKind === "blank" || practiceMode === "diagnostic" || practiceMode === "assessment"
       ? current?.verb?.trim() || undefined

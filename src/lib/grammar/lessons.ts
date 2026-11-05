@@ -503,7 +503,7 @@ const LESSONS: Record<string, GrammarLesson> = {
     [["Ayşe, “Yorgunum,” dedi.", "Ayşe said, “I am tired.”"], ["Babam, “Erken gel,” dedi.", "My father said, “Come early.”"], ["Çocuk, “Teşekkür ederim,” diye cevap verdi.", "The child replied, “Thank you.”"]],
   ),
   "basic-indirect-speech": lesson(
-    "Indirect speech reports a fact, thought, or statement without quoting the exact words.",
+    "This construction allows you to turn an entire action or statement into something you can know, think, hear, say, or believe.",
     "Use verb + -dığı/-diği/-duğu/-düğü (or -tığı/-tiği/-tuğu/-tüğü after a voiceless consonant) + possessive ending, then the case required by the main verb; bilmek commonly takes accusative: geldiğini biliyorum.",
     [["Onun geldiğini biliyorum.", "I know that he/she came."], ["Ayşe yarın çalışacağını söyledi.", "Ayşe said that she would work tomorrow."], ["Otobüsün geç kaldığını düşünüyorum.", "I think that the bus is late."]],
   ),

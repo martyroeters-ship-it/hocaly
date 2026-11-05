@@ -105,20 +105,18 @@ export const storySchema = z.preprocess((raw) => {
     omittedWords: asStringList(data.omittedWords),
     questions: questions.length ? questions : [{ question: "What is this text about?", answer: english || turkish }],
     grammarNotes: Array.isArray(data.grammarNotes)
-      ? data.grammarNotes
-          .map((item) => {
-            if (typeof item === "string") {
-              const explanation = item.trim()
-              return explanation ? { explanation } : null
-            }
-            if (!item || typeof item !== "object") return null
-            const row = item as { structure?: string; explanation?: string }
-            const structure = String(row.structure ?? "").trim()
-            const explanation = String(row.explanation ?? "").trim()
-            if (!structure && !explanation) return null
-            return { structure: structure || undefined, explanation: explanation || undefined }
-          })
-          .filter((item): item is { structure?: string; explanation?: string } => Boolean(item))
+      ? data.grammarNotes.flatMap((item): Array<{ structure?: string; explanation?: string }> => {
+          if (typeof item === "string") {
+            const explanation = item.trim()
+            return explanation ? [{ explanation }] : []
+          }
+          if (!item || typeof item !== "object") return []
+          const row = item as { structure?: string; explanation?: string }
+          const structure = String(row.structure ?? "").trim()
+          const explanation = String(row.explanation ?? "").trim()
+          if (!structure && !explanation) return []
+          return [{ ...(structure ? { structure } : {}), ...(explanation ? { explanation } : {}) }]
+        })
       : [],
   }
 }, z.object({
