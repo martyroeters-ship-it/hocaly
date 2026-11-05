@@ -1,10 +1,13 @@
 import path from "node:path"
 import { PrismaClient } from "@prisma/client"
 
-const dbUrl = `file:${path.join(process.cwd(), "prisma", "dev.db")}`
+/** Prefer DATABASE_URL (Vercel/runtime); fall back to local SQLite for dev. */
+const dbUrl =
+  process.env.DATABASE_URL?.trim() ||
+  `file:${path.join(process.cwd(), "prisma", "dev.db")}`
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient; prismaStamp?: string }
-const PRISMA_STAMP = "grammar-diagnostic-day-sql-v2"
+const PRISMA_STAMP = "grammar-diagnostic-day-sql-v3"
 if (globalForPrisma.prismaStamp !== PRISMA_STAMP) {
   globalForPrisma.prisma = undefined
   globalForPrisma.prismaStamp = PRISMA_STAMP
@@ -22,6 +25,11 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
 let ready: Promise<void> | null = null
 
 async function initDb() {
+  // Never mutate the DB during `next build` prerender — Vercel has no migrated schema yet.
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return
+  }
+
   await prisma.settings.upsert({
     where: { id: "default" },
     update: {},
